@@ -1,0 +1,1161 @@
+<!doctype html>
+<html lang="tr" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Çalışan Yönetim Sistemi</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="/_sdk/data_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Outfit', sans-serif; }
+    .sidebar-transition { transition: transform 0.3s ease, width 0.3s ease; }
+    .sidebar-overlay { background: rgba(0,0,0,0.45); backdrop-filter: blur(2px); }
+    .content-transition { transition: margin-left 0.3s ease; }
+    .countdown-pulse { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    .modal-backdrop {
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.15);
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    }
+    .glass-effect {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(10px);
+    }
+    /* Sadece giriş yapılmışsa görünen elemanlar */
+    .auth-only { display: none !important; }
+    body.authed .auth-only { display: flex !important; }
+    body.authed .auth-only-flex { display: flex !important; }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+ </head>
+ <body class="h-full bg-slate-100">
+  <div id="app" class="h-full flex flex-col">
+   <nav class="gradient-bg text-white px-4 py-3 flex items-center justify-between shadow-lg z-50">
+    <div class="flex gap-1">
+     <button id="nav-employee" onclick="switchPage('employee')" class="nav-btn px-4 py-2.5 rounded-lg font-medium transition-all duration-200 bg-white/20 text-white flex items-center gap-2">
+      <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+      <span class="hidden sm:inline">Çalışanlar</span>
+     </button>
+     <button id="nav-machine" onclick="switchPage('machine')" class="nav-btn px-4 py-2.5 rounded-lg font-medium transition-all duration-200 hover:bg-white/10 text-white/70 flex items-center gap-2">
+      <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+      <span class="hidden sm:inline">Makineler</span>
+     </button>
+    </div>
+    <button id="auth-btn" onclick="if(window.handleAuthClick)window.handleAuthClick()" title="Google ile giriş yap" class="p-1.5 rounded-full hover:bg-white/10 transition-colors flex items-center gap-2">
+     <svg class="w-7 h-7" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    </button>
+   </nav>
+   <div class="flex-1 flex overflow-hidden relative">
+    <div id="sidebar-overlay" onclick="toggleSidebar()" class="hidden lg:hidden fixed inset-0 z-30 sidebar-overlay"></div>
+    <div id="page-employee" class="page flex-1 flex">
+     <aside id="sidebar" class="sidebar-transition gradient-bg text-white flex flex-col shadow-xl z-40 overflow-hidden
+       absolute inset-y-0 left-0 w-72 -translate-x-full
+       lg:relative lg:translate-x-0 lg:w-72">
+      <div id="employee-list" class="flex-1 overflow-y-auto p-3 space-y-1"></div>
+     </aside>
+     <main id="task-area" class="content-transition flex-1 flex flex-col overflow-hidden bg-slate-100">
+      <div class="p-6 border-b bg-white shadow-sm">
+       <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+         <button id="sidebar-toggle-desktop" onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-slate-100 transition-colors hidden lg:block">
+          <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg></button> <button id="sidebar-toggle-mobile" onclick="toggleSidebar()" class="p-2 rounded-lg hover:bg-slate-100 transition-colors lg:hidden">
+          <svg class="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg></button>
+         <div>
+          <h2 id="current-employee-name" class="text-2xl font-bold text-slate-800">Çalışan Seçin</h2>
+          <p id="task-count" class="text-slate-500 text-sm mt-1">Görev yok</p>
+         </div>
+        </div><button id="add-task-btn" onclick="openTaskModal()" class="hidden px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium transition-all duration-200 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/40 flex items-center gap-2">
+         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+         </svg> Görev Ekle </button>
+       </div>
+      </div>
+      <div id="tasks-container" class="flex-1 overflow-y-auto p-6">
+       <div id="no-employee-selected" class="h-full flex items-center justify-center">
+        <div class="text-center">
+         <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-slate-200 flex items-center justify-center">
+          <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+         </div>
+         <h3 class="text-xl font-semibold text-slate-600 mb-2">Çalışan Seçin</h3>
+         <p class="text-slate-400">Sol menüden bir çalışan seçerek görevlerini görüntüleyin</p>
+        </div>
+       </div>
+       <div id="tasks-list" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+      </div>
+     </main>
+    </div>
+    <div id="page-machine" class="page hidden flex-1 flex flex-col overflow-hidden bg-slate-100">
+     <div class="p-6 border-b bg-white shadow-sm">
+      <div class="flex items-center justify-between gap-4">
+       <h2 class="text-2xl font-bold text-slate-800">Makine Yönetimi</h2><button onclick="openMachineModal()" class="auth-only-flex hidden px-5 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium transition-all duration-200 shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/40 items-center gap-2">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg> Makine Ekle </button>
+      </div>
+     </div>
+     <div id="machines-container" class="flex-1 overflow-y-auto p-6">
+      <div id="no-machines-message" class="h-full flex items-center justify-center">
+       <div class="text-center">
+        <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-slate-200 flex items-center justify-center">
+         <svg class="w-12 h-12 text-slate-400" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+         </svg>
+        </div>
+        <h3 class="text-xl font-semibold text-slate-600 mb-2">Henüz Makine Yok</h3>
+        <p class="text-slate-400">Yeni bir makine eklemek için "Makine Ekle" butonuna tıklayın</p>
+       </div>
+      </div>
+      <div id="machines-list" class="space-y-4"></div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <div id="machine-modal" class="fixed inset-0 z-50 hidden">
+   <div class="modal-backdrop absolute inset-0" onclick="closeMachineModal()"></div>
+   <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
+     <div class="p-6 border-b border-slate-200">
+      <h3 id="machine-modal-title" class="text-xl font-bold text-slate-800">Yeni Makine Ekle</h3>
+      <p class="text-slate-500 text-sm mt-1">Makine detaylarını girin</p>
+     </div>
+     <form id="machine-form" class="p-6 space-y-5" onsubmit="handleMachineSubmit(event)">
+      <input type="hidden" id="machine-id">
+      <div><label class="block text-sm font-medium text-slate-700 mb-2">Makine Seri Numarası</label> <input type="text" id="machine-serial" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all" placeholder="Seri numarasını girin...">
+      </div>
+      <div><label class="block text-sm font-medium text-slate-700 mb-2">Makine Modeli</label> <input type="text" id="machine-model" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all" placeholder="Model adını girin...">
+      </div>
+      <div><label class="block text-sm font-medium text-slate-700 mb-2">Alıcı Firma Adı</label> <input type="text" id="buyer-company" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all" placeholder="Firma adını girin...">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div><label class="block text-sm font-medium text-slate-700 mb-2">Bitiş Tarihi</label> <input type="date" id="machine-date" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all">
+       </div>
+       <div><label class="block text-sm font-medium text-slate-700 mb-2">Bitiş Saati</label> <input type="time" id="machine-time" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all">
+       </div>
+      </div>
+      <div class="flex gap-3 pt-4">
+       <button type="button" onclick="closeMachineModal()" class="flex-1 px-5 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-all"> İptal </button> <button type="submit" id="machine-submit-btn" class="flex-1 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-all shadow-lg shadow-emerald-500/30"> Kaydet </button>
+      </div>
+     </form>
+    </div>
+   </div>
+  </div>
+  <div id="note-modal" class="fixed inset-0 z-50 hidden">
+   <div class="modal-backdrop absolute inset-0" onclick="closeNoteModal()"></div>
+   <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
+     <div class="p-6 border-b border-slate-200">
+      <h3 id="note-modal-title" class="text-xl font-bold text-slate-800">Hata Ekle</h3>
+      <p class="text-slate-500 text-sm mt-1">Hata detaylarını girin</p>
+     </div>
+     <form id="note-form" class="p-6 space-y-5" onsubmit="handleNoteSubmit(event)">
+      <input type="hidden" id="note-type"> <input type="hidden" id="note-machine-id"> <textarea id="note-content" required rows="4" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all resize-none" placeholder="Açıklamayı yazın..."></textarea>
+      <div class="flex gap-3 pt-4">
+       <button type="button" onclick="closeNoteModal()" class="flex-1 px-5 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-all"> İptal </button> <button type="submit" id="note-submit-btn" class="flex-1 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-all shadow-lg shadow-emerald-500/30"> Kaydet </button>
+      </div>
+     </form>
+    </div>
+   </div>
+  </div>
+  <div id="delete-machine-modal" class="fixed inset-0 z-50 hidden">
+   <div class="modal-backdrop absolute inset-0" onclick="closeDeleteMachineModal()"></div>
+   <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-sm transform transition-all">
+     <div class="p-6 text-center">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+       <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+       </svg>
+      </div>
+      <h3 class="text-xl font-bold text-slate-800 mb-2">Makineyi Sil</h3>
+      <p class="text-slate-500 mb-6">Bu makineyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</p>
+      <div class="flex gap-3">
+       <button onclick="closeDeleteMachineModal()" class="flex-1 px-5 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-all"> İptal </button> <button onclick="confirmDeleteMachine()" id="confirm-delete-machine-btn" class="flex-1 px-5 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-all"> Sil </button>
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <div id="task-modal" class="fixed inset-0 z-50 hidden">
+   <div class="modal-backdrop absolute inset-0" onclick="closeTaskModal()"></div>
+   <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
+     <div class="p-6 border-b border-slate-200">
+      <h3 id="modal-title" class="text-xl font-bold text-slate-800">Yeni Görev Ekle</h3>
+      <p class="text-slate-500 text-sm mt-1">Görev detaylarını girin</p>
+     </div>
+     <form id="task-form" class="p-6 space-y-5" onsubmit="handleTaskSubmit(event)">
+      <input type="hidden" id="task-id">
+      <div><label class="block text-sm font-medium text-slate-700 mb-2">Görev Tanımı</label> <textarea id="task-title" required rows="2" maxlength="120" oninput="document.getElementById('task-title-counter').textContent=this.value.length" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all resize-none" placeholder="Görevi açıklayın..."></textarea>
+      <div class="text-right text-xs text-slate-400 mt-1"><span id="task-title-counter">0</span>/120</div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div><label class="block text-sm font-medium text-slate-700 mb-2">Başlangıç Tarihi</label> <input type="date" id="task-start-date" oninput="syncDeadlineConstraints()" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all">
+       </div>
+       <div><label class="block text-sm font-medium text-slate-700 mb-2">Başlangıç Saati</label> <input type="time" id="task-start-time" oninput="syncDeadlineConstraints()" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all">
+       </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div><label class="block text-sm font-medium text-slate-700 mb-2">Bitiş Tarihi</label> <input type="date" id="task-date" required oninput="syncDeadlineConstraints()" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all">
+       </div>
+       <div><label class="block text-sm font-medium text-slate-700 mb-2">Bitiş Saati</label> <input type="time" id="task-time" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-all">
+       </div>
+      </div>
+      <div class="flex gap-3 pt-4">
+       <button type="button" onclick="closeTaskModal()" class="flex-1 px-5 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-all"> İptal </button> <button type="submit" id="submit-btn" class="flex-1 px-5 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-all shadow-lg shadow-emerald-500/30"> Kaydet </button>
+      </div>
+     </form>
+    </div>
+   </div>
+  </div>
+  <div id="delete-modal" class="fixed inset-0 z-50 hidden">
+   <div class="modal-backdrop absolute inset-0" onclick="closeDeleteModal()"></div>
+   <div class="absolute inset-0 flex items-center justify-center p-4">
+    <div class="glass-effect rounded-2xl shadow-2xl w-full max-w-sm transform transition-all">
+     <div class="p-6 text-center">
+      <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+       <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+       </svg>
+      </div>
+      <h3 class="text-xl font-bold text-slate-800 mb-2">Görevi Sil</h3>
+      <p class="text-slate-500 mb-6">Bu görevi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</p>
+      <div class="flex gap-3">
+       <button onclick="closeDeleteModal()" class="flex-1 px-5 py-3 rounded-xl border border-slate-300 text-slate-700 font-medium hover:bg-slate-50 transition-all"> İptal </button> <button onclick="confirmDelete()" id="confirm-delete-btn" class="flex-1 px-5 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-medium transition-all"> Sil </button>
+      </div>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+    const defaultConfig = {
+      site_title: 'Şirket Yönetimi',
+      employee_section_title: 'Çalışanlar',
+    };
+
+    const employees = [
+      { id: 'emp1', name: 'Ahmet Yılmaz', role: 'Yazılım Geliştirici' },
+      { id: 'emp2', name: 'Ayşe Kaya', role: 'Proje Yöneticisi' },
+      { id: 'emp3', name: 'Mehmet Demir', role: 'Tasarımcı' },
+      { id: 'emp4', name: 'Fatma Çelik', role: 'Muhasebeci' },
+      { id: 'emp5', name: 'Ali Öztürk', role: 'Satış Temsilcisi' }
+    ];
+
+    let currentPage = 'employee';
+    let selectedEmployee = null;
+    let sidebarOpen = true;
+    let allTasks = [];
+    let allMachines = [];
+    let taskToDelete = null;
+    let editingTask = null;
+    let machineToDelete = null;
+    let editingMachine = null;
+    let countdownInterval = null;
+    let currentNoteType = null;
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (config) => {
+        },
+        mapToCapabilities: () => ({
+          recolorables: [],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (config) => new Map([
+          ['site_title', config.site_title || defaultConfig.site_title]
+        ])
+      });
+    }
+
+    const dataHandler = {
+      onDataChanged(data) {
+        allTasks = data.filter(item => item.employee_id);
+        allMachines = data.filter(item => item.machine_serial);
+        renderTasks();
+        renderMachines();
+        updateTaskCount();
+      }
+    };
+
+    if (window.dataSdk) {
+      window.dataSdk.init(dataHandler);
+    } else {
+      // Firebase Firestore + Google Auth
+      firebase.initializeApp({
+        apiKey: "AIzaSyBz-KaZ1K_sAH6ct9g9AZrnF796KrUNgzc",
+        authDomain: "gtakip99.firebaseapp.com",
+        projectId: "gtakip99",
+        storageBucket: "gtakip99.firebasestorage.app",
+        messagingSenderId: "510085481478",
+        appId: "1:510085481478:web:97ac8926056f778331ef87"
+      });
+
+      const db = firebase.firestore();
+      const auth = firebase.auth();
+      let currentUser = null;
+      let fsUnsubscribe = null;
+
+      auth.onAuthStateChanged(user => {
+        currentUser = user;
+        document.body.classList.toggle('authed', !!user);
+        const btn = document.getElementById('auth-btn');
+        if (user) {
+          btn.innerHTML = `<img src="${user.photoURL || ''}" class="w-8 h-8 rounded-full object-cover border-2 border-white/30" onerror="this.style.display='none'"><span class="hidden sm:inline text-sm font-medium max-w-24 truncate">${user.displayName ? user.displayName.split(' ')[0] : 'Kullanıcı'}</span>`;
+          btn.title = (user.displayName || user.email) + ' \u2013 Çıkış için tıkla';
+        } else {
+          btn.innerHTML = `<svg class="w-7 h-7" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+          btn.title = 'Google ile giriş yap';
+        }
+        updateWriteUI();
+      });
+
+      function handleAuthClick() {
+        if (currentUser) {
+          auth.signOut();
+        } else {
+          const provider = new firebase.auth.GoogleAuthProvider();
+          auth.signInWithPopup(provider).catch(e => showToast('Giriş başarısız: ' + e.message, 'red'));
+        }
+      }
+
+      function updateWriteUI() {
+        const addTaskBtn = document.getElementById('add-task-btn');
+        if (addTaskBtn && selectedEmployee) {
+          if (currentUser) {
+            addTaskBtn.classList.remove('hidden');
+            addTaskBtn.classList.add('flex');
+          } else {
+            addTaskBtn.classList.add('hidden');
+            addTaskBtn.classList.remove('flex');
+          }
+        }
+        renderTasks();
+        renderMachines();
+      }
+
+      function requireAuth() {
+        if (!currentUser) {
+          showToast('Bu işlemi yapabilmek için giriş yapınız', 'amber');
+          return false;
+        }
+        return true;
+      }
+
+      function showToast(msg, color = 'emerald') {
+        const colors = { emerald: 'bg-emerald-500', red: 'bg-red-500', amber: 'bg-amber-500' };
+        const el = document.createElement('div');
+        el.className = `fixed bottom-4 right-4 ${colors[color] || colors.emerald} text-white px-6 py-3 rounded-xl shadow-lg z-[999] text-sm font-medium`;
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 3500);
+      }
+
+      window.handleAuthClick = handleAuthClick;
+      window.requireAuth = requireAuth;
+      window.showToast = showToast;
+
+      window.dataSdk = {
+        init(handler) {
+          if (fsUnsubscribe) fsUnsubscribe();
+          fsUnsubscribe = db.collection('gtakip_items')
+            .onSnapshot(snapshot => {
+              const data = snapshot.docs.map(doc => ({ ...doc.data(), __backendId: doc.id }));
+              handler.onDataChanged(data);
+            }, err => console.error('Firestore snapshot error:', err));
+        },
+        async create(item) {
+          try {
+            const { __backendId, ...data } = item;
+            const ref = await db.collection('gtakip_items').add(data);
+            return { isOk: true, id: ref.id };
+          } catch (e) { return { isOk: false, error: e }; }
+        },
+        async update(item) {
+          try {
+            const { __backendId, ...data } = item;
+            await db.collection('gtakip_items').doc(__backendId).set(data);
+            return { isOk: true };
+          } catch (e) { return { isOk: false, error: e }; }
+        },
+        async delete(item) {
+          try {
+            await db.collection('gtakip_items').doc(item.__backendId).delete();
+            return { isOk: true };
+          } catch (e) { return { isOk: false, error: e }; }
+        }
+      };
+
+      window.dataSdk.init(dataHandler);
+    }
+
+    function renderEmployeeList() {
+      const container = document.getElementById('employee-list');
+      container.innerHTML = employees.map(emp => `
+        <button onclick="selectEmployee('${emp.id}')" 
+          class="employee-item w-full text-left p-3 rounded-xl transition-all duration-200 ${selectedEmployee === emp.id ? 'bg-white/20 shadow-lg' : 'hover:bg-white/10'}"
+          data-employee="${emp.id}">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white font-bold text-sm shadow-md">
+              ${emp.name.split(' ').map(n => n[0]).join('')}
+            </div>
+            <div class="overflow-hidden">
+              <div class="font-medium text-white truncate">${emp.name}</div>
+              <div class="text-xs text-white/60 truncate">${emp.role}</div>
+            </div>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    function selectEmployee(empId) {
+      selectedEmployee = empId;
+      const emp = employees.find(e => e.id === empId);
+      
+      document.getElementById('current-employee-name').textContent = emp.name;
+      const isAuthed = typeof requireAuth === 'function' ? !!document.body.classList.contains('authed') : true;
+      if (isAuthed) {
+        document.getElementById('add-task-btn').classList.remove('hidden');
+        document.getElementById('add-task-btn').classList.add('flex');
+      }
+      document.getElementById('no-employee-selected').classList.add('hidden');
+      document.getElementById('tasks-list').classList.remove('hidden');
+      
+      renderEmployeeList();
+      renderTasks();
+      updateTaskCount();
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('tasks-list');
+      if (!selectedEmployee) {
+        container.innerHTML = '';
+        return;
+      }
+      
+      const employeeTasks = allTasks.filter(t => t.employee_id === selectedEmployee);
+      
+      if (employeeTasks.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full flex flex-col items-center justify-center py-16 text-center">
+            <div class="w-20 h-20 rounded-full bg-slate-200 flex items-center justify-center mb-4">
+              <svg class="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+            </div>
+            <h4 class="font-semibold text-slate-600 mb-1">Henüz görev yok</h4>
+            <p class="text-slate-400 text-sm">Yeni görev eklemek için butona tıklayın</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = employeeTasks.map(task => {
+        const deadline = new Date(task.deadline);
+        const remaining = getTimeRemaining(deadline);
+        const isOverdue = remaining.total <= 0;
+        
+        return `
+          <div class="task-card glass-effect rounded-2xl shadow-lg card-hover transition-all duration-300 overflow-hidden" data-task-id="${task.id}">
+            <div class="p-5">
+              <div class="flex items-start justify-between mb-4">
+                <div class="flex-1 pr-2 min-w-0">
+                  <h4 class="font-semibold text-slate-800 text-base leading-snug break-words">${task.title}</h4>
+                </div>
+                <div class="flex gap-1">
+                  <button onclick="editTask('${task.__backendId}')" class="auth-only p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <button onclick="openDeleteModal('${task.__backendId}')" class="auth-only p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              ${task.start_date ? `
+              <div class="flex items-center gap-2 text-xs text-slate-400 mb-1">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>Başlangıç: ${formatDate(new Date(task.start_date))}</span>
+              </div>` : ''}
+              <div class="flex items-center gap-2 text-sm text-slate-500 mb-4">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+                <span>Bitiş: ${formatDate(deadline)}</span>
+              </div>
+              
+              ${(() => {
+                const now = new Date();
+                const hasStart = task.start_date && new Date(task.start_date) > now;
+                const startDate = task.start_date ? new Date(task.start_date) : null;
+                const timeToStart = hasStart ? getTimeRemaining(startDate) : null;
+                if (hasStart) {
+                  return `<div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                    <div class="text-xs font-medium text-amber-600 mb-2 uppercase tracking-wide">Başlamasına Kalan</div>
+                    <div class="countdown-display flex gap-3 justify-center" data-deadline="${task.start_date}" data-mode="start">
+                      <div class="text-center"><div class="text-2xl font-bold text-amber-500 countdown-days">${timeToStart.days}</div><div class="text-xs text-slate-500">Gün</div></div>
+                      <div class="text-2xl font-bold text-slate-300">:</div>
+                      <div class="text-center"><div class="text-2xl font-bold text-amber-500 countdown-hours">${String(timeToStart.hours).padStart(2,'0')}</div><div class="text-xs text-slate-500">Saat</div></div>
+                      <div class="text-2xl font-bold text-slate-300">:</div>
+                      <div class="text-center"><div class="text-2xl font-bold text-amber-500 countdown-minutes">${String(timeToStart.minutes).padStart(2,'0')}</div><div class="text-xs text-slate-500">Dakika</div></div>
+                      <div class="text-2xl font-bold text-slate-300">:</div>
+                      <div class="text-center"><div class="text-2xl font-bold text-amber-500 countdown-seconds countdown-pulse">${String(timeToStart.seconds).padStart(2,'0')}</div><div class="text-xs text-slate-500">Saniye</div></div>
+                    </div>
+                  </div>`;
+                }
+                return `<div class="countdown-container ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'} border rounded-xl p-4">
+                  <div class="text-xs font-medium ${isOverdue ? 'text-red-600' : 'text-emerald-600'} mb-2 uppercase tracking-wide">${isOverdue ? 'Süre Doldu' : 'Kalan Süre'}</div>
+                  <div class="countdown-display flex gap-3 justify-center" data-deadline="${task.deadline}">
+                    ${isOverdue ? `<div class="text-red-500 font-bold text-lg">Gecikmiş!</div>` : `
+                      <div class="text-center"><div class="text-2xl font-bold text-emerald-600 countdown-days">${remaining.days}</div><div class="text-xs text-slate-500">Gün</div></div>
+                      <div class="text-2xl font-bold text-slate-300">:</div>
+                      <div class="text-center"><div class="text-2xl font-bold text-emerald-600 countdown-hours">${String(remaining.hours).padStart(2,'0')}</div><div class="text-xs text-slate-500">Saat</div></div>
+                      <div class="text-2xl font-bold text-slate-300">:</div>
+                      <div class="text-center"><div class="text-2xl font-bold text-emerald-600 countdown-minutes">${String(remaining.minutes).padStart(2,'0')}</div><div class="text-xs text-slate-500">Dakika</div></div>
+                      <div class="text-2xl font-bold text-slate-300">:</div>
+                      <div class="text-center"><div class="text-2xl font-bold text-emerald-600 countdown-seconds countdown-pulse">${String(remaining.seconds).padStart(2,'0')}</div><div class="text-xs text-slate-500">Saniye</div></div>
+                    `}
+                  </div>
+                </div>`;
+              })()}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderMachines() {
+      const container = document.getElementById('machines-list');
+      const noMessage = document.getElementById('no-machines-message');
+      
+      if (allMachines.length === 0) {
+        container.innerHTML = '';
+        noMessage.classList.remove('hidden');
+        return;
+      }
+      
+      noMessage.classList.add('hidden');
+      
+      container.innerHTML = allMachines.map(machine => {
+        const deadline = new Date(machine.machine_deadline);
+        const remaining = getTimeRemaining(deadline);
+        const isOverdue = remaining.total <= 0;
+        
+        return `
+          <div class="machine-card glass-effect rounded-2xl shadow-lg card-hover transition-all duration-300 overflow-hidden" data-machine-id="${machine.id}">
+            <div class="p-6">
+              <div class="flex items-start justify-between mb-4">
+                <div class="flex-1">
+                  <h4 class="font-semibold text-slate-800 text-lg mb-2">${machine.machine_model}</h4>
+                  <p class="text-sm text-slate-600 mb-1"><span class="font-medium">Seri No:</span> ${machine.machine_serial}</p>
+                  <p class="text-sm text-slate-600"><span class="font-medium">Firma:</span> ${machine.buyer_company}</p>
+                </div>
+                <div class="flex gap-1">
+                  <button onclick="editMachine('${machine.__backendId}')" class="auth-only p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                  </button>
+                  <button onclick="openDeleteMachineModal('${machine.__backendId}')" class="auth-only p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="countdown-container ${isOverdue ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'} border rounded-xl p-4 mb-4">
+                <div class="text-xs font-medium ${isOverdue ? 'text-red-600' : 'text-emerald-600'} mb-2 uppercase tracking-wide">
+                  ${isOverdue ? 'Süre Doldu' : 'Kalan Süre'}
+                </div>
+                <div class="countdown-display flex gap-3 justify-center" data-deadline="${machine.machine_deadline}">
+                  ${isOverdue ? `
+                    <div class="text-red-500 font-bold text-lg">Gecikmiş!</div>
+                  ` : `
+                    <div class="text-center">
+                      <div class="text-2xl font-bold ${isOverdue ? 'text-red-600' : 'text-emerald-600'} countdown-days">${remaining.days}</div>
+                      <div class="text-xs text-slate-500">Gün</div>
+                    </div>
+                    <div class="text-2xl font-bold text-slate-300">:</div>
+                    <div class="text-center">
+                      <div class="text-2xl font-bold ${isOverdue ? 'text-red-600' : 'text-emerald-600'} countdown-hours">${String(remaining.hours).padStart(2, '0')}</div>
+                      <div class="text-xs text-slate-500">Saat</div>
+                    </div>
+                    <div class="text-2xl font-bold text-slate-300">:</div>
+                    <div class="text-center">
+                      <div class="text-2xl font-bold ${isOverdue ? 'text-red-600' : 'text-emerald-600'} countdown-minutes">${String(remaining.minutes).padStart(2, '0')}</div>
+                      <div class="text-xs text-slate-500">Dakika</div>
+                    </div>
+                    <div class="text-2xl font-bold text-slate-300">:</div>
+                    <div class="text-center">
+                      <div class="text-2xl font-bold ${isOverdue ? 'text-red-600' : 'text-emerald-600'} countdown-seconds countdown-pulse">${String(remaining.seconds).padStart(2, '0')}</div>
+                      <div class="text-xs text-slate-500">Saniye</div>
+                    </div>
+                  `}
+                </div>
+              </div>
+              
+              ${(() => {
+                const errorList = parseNotes(machine.error_notes);
+                const revisionList = parseNotes(machine.revision_notes);
+                return `
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <button onclick="openNoteModal('${machine.__backendId}', 'error')" class="auth-only w-full px-4 py-3 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-medium transition-colors text-sm items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4v2m0 4v2M8.228 7.228a6 6 0 110 8.485M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/>
+                    </svg>
+                    Hata Ekle
+                  </button>
+                  ${errorList.length > 0 ? `<div class="space-y-2 mt-2">${errorList.map(note => `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-3">
+                      <div class="flex items-start justify-between mb-1">
+                        ${note.date ? `<div class="text-xs text-red-400">${new Date(note.date).toLocaleDateString('tr-TR', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>` : '<div></div>'}
+                        <button onclick="deleteNote('${machine.__backendId}', 'error', '${note.id}')" class="p-1 text-red-400 hover:text-red-700 transition-colors ml-2 shrink-0">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+                      <div class="text-red-700 text-sm">${note.text}</div>
+                    </div>
+                  `).join('')}</div>` : ''}
+                </div>
+                <div class="flex-1">
+                  <button onclick="openNoteModal('${machine.__backendId}', 'revision')" class="auth-only w-full px-4 py-3 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 font-medium transition-colors text-sm items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5a3 3 0 11-6 0 3 3 0 016 0zM18 9c0 .627-.102 1.23-.294 1.796M18.75 15c.27.865.42 1.796.42 2.704 0 .993-.166 1.955-.47 2.85M19 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H9m0 0v8.999m0-8.999H3m0 8.999v-1a3 3 0 016 0v1m0 0h6v-1a3 3 0 00-6 0v1"/>
+                    </svg>
+                    Revize Ekle
+                  </button>
+                  ${revisionList.length > 0 ? `<div class="space-y-2 mt-2">${revisionList.map(note => `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div class="flex items-start justify-between mb-1">
+                        ${note.date ? `<div class="text-xs text-blue-400">${new Date(note.date).toLocaleDateString('tr-TR', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>` : '<div></div>'}
+                        <button onclick="deleteNote('${machine.__backendId}', 'revision', '${note.id}')" class="p-1 text-blue-400 hover:text-blue-700 transition-colors ml-2 shrink-0">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                      </div>
+                      <div class="text-blue-700 text-sm">${note.text}</div>
+                    </div>
+                  `).join('')}</div>` : ''}
+                </div>
+              </div>`;
+              })()}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateCountdowns() {
+      let needsRerender = false;
+      const countdownDisplays = document.querySelectorAll('.countdown-display');
+      countdownDisplays.forEach(display => {
+        const deadline = new Date(display.dataset.deadline);
+        const remaining = getTimeRemaining(deadline);
+        const isStartMode = display.dataset.mode === 'start';
+        
+        if (remaining.total > 0) {
+          const daysEl = display.querySelector('.countdown-days');
+          const hoursEl = display.querySelector('.countdown-hours');
+          const minutesEl = display.querySelector('.countdown-minutes');
+          const secondsEl = display.querySelector('.countdown-seconds');
+          
+          if (daysEl) daysEl.textContent = remaining.days;
+          if (hoursEl) hoursEl.textContent = String(remaining.hours).padStart(2, '0');
+          if (minutesEl) minutesEl.textContent = String(remaining.minutes).padStart(2, '0');
+          if (secondsEl) secondsEl.textContent = String(remaining.seconds).padStart(2, '0');
+        } else if (isStartMode) {
+          // Başlangıç tarihi geçti - kartları yeniden render et
+          needsRerender = true;
+        }
+      });
+      if (needsRerender) renderTasks();
+    }
+
+    function getTimeRemaining(deadline) {
+      const total = deadline - new Date();
+      const seconds = Math.floor((total / 1000) % 60);
+      const minutes = Math.floor((total / 1000 / 60) % 60);
+      const hours = Math.floor((total / (1000 * 60 * 60)) % 24);
+      const days = Math.floor(total / (1000 * 60 * 60 * 24));
+      
+      return { total, days, hours, minutes, seconds };
+    }
+
+    function formatDate(date) {
+      const options = { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+      return date.toLocaleDateString('tr-TR', options);
+    }
+
+    function updateTaskCount() {
+      const countEl = document.getElementById('task-count');
+      if (!selectedEmployee) {
+        countEl.textContent = 'Görev yok';
+        return;
+      }
+      const count = allTasks.filter(t => t.employee_id === selectedEmployee).length;
+      countEl.textContent = count === 0 ? 'Henüz görev yok' : `${count} görev`;
+    }
+
+    function toggleSidebar() {
+      sidebarOpen = !sidebarOpen;
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebar-overlay');
+      const isMobile = window.innerWidth < 1024;
+      
+      if (sidebarOpen) {
+        sidebar.style.transform = 'translateX(0)';
+        if (!isMobile) sidebar.style.width = '18rem';
+        if (isMobile) overlay.classList.remove('hidden');
+      } else {
+        sidebar.style.transform = 'translateX(-100%)';
+        if (!isMobile) sidebar.style.width = '0';
+        overlay.classList.add('hidden');
+      }
+    }
+
+    function switchPage(page) {
+      currentPage = page;
+      document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+      document.getElementById(`page-${page}`).classList.remove('hidden');
+      
+      document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.classList.remove('bg-white/20', 'text-white');
+        btn.classList.add('hover:bg-white/10', 'text-white/70');
+      });
+      
+      const activeBtn = document.getElementById(`nav-${page}`);
+      activeBtn.classList.add('bg-white/20', 'text-white');
+      activeBtn.classList.remove('hover:bg-white/10', 'text-white/70');
+    }
+
+    function syncDeadlineConstraints() {
+      const startDate = document.getElementById('task-start-date').value;
+      const startTime = document.getElementById('task-start-time').value;
+      const endDate = document.getElementById('task-date').value;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Bitiş tarihi min'i: başlangıç varsa o, yoksa bugün
+      const endDateMin = startDate || todayStr;
+      document.getElementById('task-date').min = endDateMin;
+
+      // Eğer bitiş tarihi başlangıçtan önceyse sıfırla
+      if (startDate && endDate && endDate < startDate) {
+        document.getElementById('task-date').value = '';
+        document.getElementById('task-time').value = '';
+        document.getElementById('task-time').min = '';
+        return;
+      }
+
+      // Aynı gün ise bitiş saati başlangıç saatinden önce olamaz
+      if (startDate && endDate && startDate === endDate && startTime) {
+        document.getElementById('task-time').min = startTime;
+        // Seçili bitiş saati geçersizse sıfırla
+        const currentEndTime = document.getElementById('task-time').value;
+        if (currentEndTime && currentEndTime <= startTime) {
+          document.getElementById('task-time').value = '';
+        }
+      } else {
+        document.getElementById('task-time').min = '';
+      }
+    }
+
+    function openTaskModal() {
+      editingTask = null;
+      const todayStr = new Date().toISOString().split('T')[0];
+      document.getElementById('modal-title').textContent = 'Yeni Görev Ekle';
+      document.getElementById('task-id').value = '';
+      document.getElementById('task-title').value = '';
+      document.getElementById('task-title-counter').textContent = '0';
+      document.getElementById('task-start-date').value = '';
+      document.getElementById('task-start-date').min = todayStr;
+      document.getElementById('task-start-time').value = '';
+      document.getElementById('task-date').value = '';
+      document.getElementById('task-date').min = todayStr;
+      document.getElementById('task-time').value = '';
+      document.getElementById('task-time').min = '';
+      document.getElementById('task-modal').classList.remove('hidden');
+    }
+
+    function closeTaskModal() {
+      document.getElementById('task-modal').classList.add('hidden');
+      editingTask = null;
+    }
+
+    function editTask(backendId) {
+      const task = allTasks.find(t => t.__backendId === backendId);
+      if (!task) return;
+      
+      editingTask = task;
+      const deadline = new Date(task.deadline);
+      
+      const todayStr = new Date().toISOString().split('T')[0];
+      document.getElementById('modal-title').textContent = 'Görevi Düzenle';
+      document.getElementById('task-id').value = task.__backendId;
+      document.getElementById('task-title').value = task.title;
+      document.getElementById('task-title-counter').textContent = task.title.length;
+      document.getElementById('task-start-date').min = todayStr;
+      if (task.start_date) {
+        const sd = new Date(task.start_date);
+        document.getElementById('task-start-date').value = sd.toISOString().split('T')[0];
+        document.getElementById('task-start-time').value = sd.toTimeString().slice(0, 5);
+      } else {
+        document.getElementById('task-start-date').value = '';
+        document.getElementById('task-start-time').value = '';
+      }
+      document.getElementById('task-date').value = deadline.toISOString().split('T')[0];
+      document.getElementById('task-time').value = deadline.toTimeString().slice(0, 5);
+      syncDeadlineConstraints();
+      document.getElementById('task-modal').classList.remove('hidden');
+    }
+
+    async function handleTaskSubmit(event) {
+      event.preventDefault();
+      if (typeof requireAuth === 'function' && !requireAuth()) return;
+      
+      const title = document.getElementById('task-title').value.trim();
+      const startDateVal = document.getElementById('task-start-date').value;
+      const startTimeVal = document.getElementById('task-start-time').value;
+      const start_date = startDateVal ? new Date(`${startDateVal}T${startTimeVal || '00:00'}`).toISOString() : '';
+      const date = document.getElementById('task-date').value;
+      const time = document.getElementById('task-time').value;
+      const deadline = new Date(`${date}T${time}`).toISOString();
+      
+      const submitBtn = document.getElementById('submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Kaydediliyor...';
+      
+      try {
+        if (editingTask) {
+          const result = await window.dataSdk.update({
+            ...editingTask,
+            title,
+            deadline,
+            start_date
+          });
+          
+          if (!result.isOk) {
+            console.error('Update failed:', result.error);
+          }
+        } else {
+          if (allTasks.length >= 999) {
+            const warning = document.createElement('div');
+            warning.className = 'fixed bottom-4 right-4 bg-amber-500 text-white px-6 py-3 rounded-xl shadow-lg z-50';
+            warning.textContent = 'Maksimum 999 görev sınırına ulaşıldı!';
+            document.body.appendChild(warning);
+            setTimeout(() => warning.remove(), 3000);
+            return;
+          }
+          
+          const result = await window.dataSdk.create({
+            id: Date.now().toString(),
+            employee_id: selectedEmployee,
+            title,
+            deadline,
+            start_date,
+            created_at: new Date().toISOString()
+          });
+          
+          if (!result.isOk) {
+            console.error('Create failed:', result.error);
+          }
+        }
+        
+        closeTaskModal();
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Kaydet';
+      }
+    }
+
+    function openDeleteModal(backendId) {
+      taskToDelete = backendId;
+      document.getElementById('delete-modal').classList.remove('hidden');
+    }
+
+    function closeDeleteModal() {
+      document.getElementById('delete-modal').classList.add('hidden');
+      taskToDelete = null;
+    }
+
+    async function confirmDelete() {
+      if (!taskToDelete) return;
+      if (typeof requireAuth === 'function' && !requireAuth()) return;
+      
+      const task = allTasks.find(t => t.__backendId === taskToDelete);
+      if (!task) return;
+      
+      const deleteBtn = document.getElementById('confirm-delete-btn');
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Siliniyor...';
+      
+      try {
+        const result = await window.dataSdk.delete(task);
+        
+        if (!result.isOk) {
+          console.error('Delete failed:', result.error);
+        }
+        
+        closeDeleteModal();
+      } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = 'Sil';
+      }
+    }
+
+    function openMachineModal() {
+      editingMachine = null;
+      document.getElementById('machine-modal-title').textContent = 'Yeni Makine Ekle';
+      document.getElementById('machine-id').value = '';
+      document.getElementById('machine-serial').value = '';
+      document.getElementById('machine-model').value = '';
+      document.getElementById('buyer-company').value = '';
+      document.getElementById('machine-date').value = '';
+      document.getElementById('machine-time').value = '';
+      document.getElementById('machine-modal').classList.remove('hidden');
+    }
+
+    function closeMachineModal() {
+      document.getElementById('machine-modal').classList.add('hidden');
+      editingMachine = null;
+    }
+
+    function editMachine(backendId) {
+      const machine = allMachines.find(m => m.__backendId === backendId);
+      if (!machine) return;
+      
+      editingMachine = machine;
+      const deadline = new Date(machine.machine_deadline);
+      
+      document.getElementById('machine-modal-title').textContent = 'Makineyi Düzenle';
+      document.getElementById('machine-id').value = machine.__backendId;
+      document.getElementById('machine-serial').value = machine.machine_serial;
+      document.getElementById('machine-model').value = machine.machine_model;
+      document.getElementById('buyer-company').value = machine.buyer_company;
+      document.getElementById('machine-date').value = deadline.toISOString().split('T')[0];
+      document.getElementById('machine-time').value = deadline.toTimeString().slice(0, 5);
+      document.getElementById('machine-modal').classList.remove('hidden');
+    }
+
+    async function handleMachineSubmit(event) {
+      event.preventDefault();
+      if (typeof requireAuth === 'function' && !requireAuth()) return;
+      
+      const serial = document.getElementById('machine-serial').value.trim();
+      const model = document.getElementById('machine-model').value.trim();
+      const company = document.getElementById('buyer-company').value.trim();
+      const date = document.getElementById('machine-date').value;
+      const time = document.getElementById('machine-time').value;
+      const deadline = new Date(`${date}T${time}`).toISOString();
+      
+      const submitBtn = document.getElementById('machine-submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Kaydediliyor...';
+      
+      try {
+        if (editingMachine) {
+          const result = await window.dataSdk.update({
+            ...editingMachine,
+            machine_serial: serial,
+            machine_model: model,
+            buyer_company: company,
+            machine_deadline: deadline
+          });
+          
+          if (!result.isOk) {
+            console.error('Update failed:', result.error);
+          }
+        } else {
+          if (allMachines.length >= 999) {
+            const warning = document.createElement('div');
+            warning.className = 'fixed bottom-4 right-4 bg-amber-500 text-white px-6 py-3 rounded-xl shadow-lg z-50';
+            warning.textContent = 'Maksimum 999 makine sınırına ulaşıldı!';
+            document.body.appendChild(warning);
+            setTimeout(() => warning.remove(), 3000);
+            return;
+          }
+          
+          const result = await window.dataSdk.create({
+            id: Date.now().toString(),
+            machine_serial: serial,
+            machine_model: model,
+            buyer_company: company,
+            machine_deadline: deadline,
+            created_at: new Date().toISOString(),
+            error_notes: '',
+            revision_notes: ''
+          });
+          
+          if (!result.isOk) {
+            console.error('Create failed:', result.error);
+          }
+        }
+        
+        closeMachineModal();
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Kaydet';
+      }
+    }
+
+    function parseNotes(notesStr) {
+      if (!notesStr) return [];
+      try {
+        const parsed = JSON.parse(notesStr);
+        if (Array.isArray(parsed)) return parsed;
+        return [{ id: 'legacy', text: notesStr, date: null }];
+      } catch (e) {
+        return [{ id: 'legacy', text: notesStr, date: null }];
+      }
+    }
+
+    function stringifyNotes(notesArr) {
+      return JSON.stringify(notesArr);
+    }
+
+    function openNoteModal(machineId, noteType) {
+      currentNoteType = noteType;
+      document.getElementById('note-machine-id').value = machineId;
+      document.getElementById('note-content').value = '';
+      
+      const titleEl = document.getElementById('note-modal-title');
+      const descEl = document.querySelector('#note-modal p');
+      
+      if (noteType === 'error') {
+        titleEl.textContent = 'Hata Ekle';
+        descEl.textContent = 'Hata detaylarını girin';
+      } else {
+        titleEl.textContent = 'Revize Ekle';
+        descEl.textContent = 'Revize detaylarını girin';
+      }
+      
+      document.getElementById('note-modal').classList.remove('hidden');
+    }
+
+    async function deleteNote(machineId, noteType, noteId) {
+      if (typeof requireAuth === 'function' && !requireAuth()) return;
+      const machine = allMachines.find(m => m.__backendId === machineId);
+      if (!machine) return;
+      
+      const fieldKey = noteType === 'error' ? 'error_notes' : 'revision_notes';
+      const existingNotes = parseNotes(machine[fieldKey]);
+      const updatedNotes = existingNotes.filter(n => n.id !== noteId);
+      
+      const updateData = {
+        ...machine,
+        [fieldKey]: updatedNotes.length > 0 ? stringifyNotes(updatedNotes) : ''
+      };
+      
+      const result = await window.dataSdk.update(updateData);
+      
+      if (!result.isOk) {
+        console.error('Delete failed:', result.error);
+      }
+    }
+
+    function closeNoteModal() {
+      document.getElementById('note-modal').classList.add('hidden');
+      currentNoteType = null;
+    }
+
+    async function handleNoteSubmit(event) {
+      event.preventDefault();
+      if (typeof requireAuth === 'function' && !requireAuth()) return;
+      
+      const machineId = document.getElementById('note-machine-id').value;
+      const content = document.getElementById('note-content').value.trim();
+      
+      const machine = allMachines.find(m => m.__backendId === machineId);
+      if (!machine) return;
+      
+      const submitBtn = document.getElementById('note-submit-btn');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Kaydediliyor...';
+      
+      try {
+        const fieldKey = currentNoteType === 'error' ? 'error_notes' : 'revision_notes';
+        const existingNotes = parseNotes(machine[fieldKey]);
+        const newNote = { id: Date.now().toString(), text: content, date: new Date().toISOString() };
+        const updatedNotes = [...existingNotes, newNote];
+        
+        const updateData = {
+          ...machine,
+          [fieldKey]: stringifyNotes(updatedNotes)
+        };
+        
+        const result = await window.dataSdk.update(updateData);
+        
+        if (!result.isOk) {
+          console.error('Update failed:', result.error);
+        }
+        
+        closeNoteModal();
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Kaydet';
+      }
+    }
+
+    function openDeleteMachineModal(backendId) {
+      machineToDelete = backendId;
+      document.getElementById('delete-machine-modal').classList.remove('hidden');
+    }
+
+    function closeDeleteMachineModal() {
+      document.getElementById('delete-machine-modal').classList.add('hidden');
+      machineToDelete = null;
+    }
+
+    async function confirmDeleteMachine() {
+      if (!machineToDelete) return;
+      if (typeof requireAuth === 'function' && !requireAuth()) return;
+      
+      const machine = allMachines.find(m => m.__backendId === machineToDelete);
+      if (!machine) return;
+      
+      const deleteBtn = document.getElementById('confirm-delete-machine-btn');
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Siliniyor...';
+      
+      try {
+        const result = await window.dataSdk.delete(machine);
+        
+        if (!result.isOk) {
+          console.error('Delete failed:', result.error);
+        }
+        
+        closeDeleteMachineModal();
+      } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = 'Sil';
+      }
+    }
+
+    renderEmployeeList();
+    countdownInterval = setInterval(updateCountdowns, 1000);
+
+    // Mobilde sidebar kapalı başlasın
+    if (window.innerWidth < 1024) {
+      sidebarOpen = false;
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9d80638f1757c546',t:'MTc3Mjc4OTkyMS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
